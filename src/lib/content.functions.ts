@@ -11,7 +11,7 @@ const CONTENT_KEY = "main";
 // Yangi xabarlar shu Telegram chatiga yuboriladi.
 const TELEGRAM_CHAT_ID = "7247424123";
 // Default matches the demo credentials; override with the ADMIN_PASSWORD secret.
-const DEFAULT_ADMIN = { username: "admin", password: "portfolio2026" };
+const DEFAULT_ADMIN = { username: "admin", password: "admin404" };
 
 function adminPassword(): string {
   return process.env["ADMIN_PASSWORD"] || DEFAULT_ADMIN.password;
@@ -57,41 +57,6 @@ export const saveSiteContent = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-const IMAGE_BUCKET = "site-images";
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-/** Admin: upload an image file (from the dashboard) to Supabase Storage and return its public URL. */
-export const uploadSiteImage = createServerFn({ method: "POST" })
-  .inputValidator((data: { token: string; filename: string; contentType: string; base64: string }) => data)
-  .handler(async ({ data }) => {
-    if (!data.token || !verifyToken(data.token)) {
-      throw new Response("Unauthorized", { status: 401 });
-    }
-    if (!ALLOWED_IMAGE_TYPES.has(data.contentType)) {
-      throw new Error("Faqat JPG, PNG, WEBP yoki GIF rasm fayllari qabul qilinadi");
-    }
-    const bytes = Buffer.from(data.base64, "base64");
-    if (bytes.byteLength > MAX_IMAGE_BYTES) {
-      throw new Error("Rasm hajmi 5 MB dan oshmasligi kerak");
-    }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Make sure the public bucket exists (no-op if it's already there).
-    await supabaseAdmin.storage.createBucket(IMAGE_BUCKET, { public: true }).catch(() => {});
-
-    const ext = data.filename.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(IMAGE_BUCKET)
-      .upload(path, bytes, { contentType: data.contentType, upsert: false });
-    if (uploadError) throw new Error("Rasm yuklashda xatolik yuz berdi");
-
-    const { data: pub } = supabaseAdmin.storage.from(IMAGE_BUCKET).getPublicUrl(path);
-    return { ok: true as const, url: pub.publicUrl };
-  });
-
 /** Public: store a contact form message in the database. */
 export const submitContactMessage = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; email: string; message: string }) => {
@@ -102,34 +67,69 @@ export const submitContactMessage = createServerFn({ method: "POST" })
     return { name, email, message };
   })
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("contact_messages").insert(data);
-    if (error) throw new Error("Xabarni saqlashda xatolik");
+    // Saving and Telegram both need backend keys. When the project runs
+    // locally without them, the form still works (message is only logged).
+    if (process.env["SUPABASE_SERVICE_ROLE_KEY"] && process.env["SUPABASE_URL"]) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { error } = await supabaseAdmin.from("contact_messages").insert(data);
+        if (error) console.error("[contact] save failed", error.message);
+      } catch (e) {
+        console.error("[contact] save error", e);
+      }
+    } else {
+      console.info("[contact] local mode — message not stored:", data.name, data.email);
+    }
     await notifyTelegram(data);
     return { ok: true as const };
   });
 
 /**
  * Telegram bildirishnomasi: yangi xabarni egasining Telegram chatiga yuboradi.
- * To'g'ridan-to'g'ri Telegram Bot API (api.telegram.org) orqali ishlaydi —
- * BotFather'dan olingan TELEGRAM_BOT_TOKEN kerak (Lovable'ning ichki connectoriga bog'liq emas).
+ * 1) TELEGRAM_BOT_TOKEN bo'lsa — to'g'ridan-to'g'ri Telegram API (Netlify/Vercel/local).
+ * 2) Aks holda — Lovable connector gateway (faqat Lovable hostingida).
  */
 async function notifyTelegram(data: { name: string; email: string; message: string }) {
-  const botToken = process.env["TELEGRAM_BOT_TOKEN"];
   const chatId = process.env["TELEGRAM_CHAT_ID"] || TELEGRAM_CHAT_ID;
-  if (!botToken) {
-    console.warn("[telegram] TELEGRAM_BOT_TOKEN sozlanmagan — xabar Telegram'ga yuborilmadi.");
-    return;
-  }
   const text =
     `🔔 Yangi xabar (portfolio)\n\n` +
     `👤 ${data.name}\n` +
     `✉️ ${data.email}\n\n` +
     data.message;
+
+  const botToken = process.env["TELEGRAM_BOT_TOKEN"];
+  if (botToken) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text }),
+      });
+      if (!res.ok) {
+        console.error(`[telegram] direct sendMessage failed [${res.status}]: ${await res.text()}`);
+        return;
+      }
+      return;
+    } catch (e) {
+      console.error("[telegram] direct sendMessage error", e);
+      return;
+    }
+  }
+
+  const lovableKey = process.env["LOVABLE_API_KEY"];
+  const telegramKey = process.env["TELEGRAM_API_KEY"];
+  if (!lovableKey || !telegramKey) {
+    console.info("[telegram] no credentials — notification skipped");
+    return;
+  }
   try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    const res = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": telegramKey,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ chat_id: chatId, text }),
     });
     if (!res.ok) {
@@ -139,3 +139,4 @@ async function notifyTelegram(data: { name: string; email: string; message: stri
     console.error("[telegram] sendMessage error", e);
   }
 }
+

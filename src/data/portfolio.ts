@@ -2,10 +2,32 @@
  * Static/mock content for the portfolio.
  * This is the shape the admin panel edits and persists to the database.
  */
-const avatar = "/avatar-smile.png";
-const project1 = "/project-1.jpg";
-const project2 = "/project-2.jpg";
-const project3 = "/project-3.jpg";
+// Images are bundled from the repository so they also work when the project
+// is downloaded and run locally (VS Code), not only on Lovable hosting.
+import avatar from "@/assets/avatar-smile.png";
+import project1 from "@/assets/project-1.jpg";
+import project2 from "@/assets/project-2.jpg";
+import project3 from "@/assets/project-3.jpg";
+
+/**
+ * Older saved content may point at Lovable's CDN paths (/__l5e/...), which do
+ * not exist outside Lovable hosting. Map those back to the bundled files.
+ */
+const localImages: Record<string, string> = {
+  "avatar-smile.png": avatar,
+  "project-1.jpg": project1,
+  "project-2.jpg": project2,
+  "project-3.jpg": project3,
+};
+
+export function resolveImage(url: string | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("/__l5e/")) {
+    const file = url.split("/").pop() ?? "";
+    return localImages[file] ?? url;
+  }
+  return url;
+}
 
 export type Skill = { id: string; name: string; level: number };
 

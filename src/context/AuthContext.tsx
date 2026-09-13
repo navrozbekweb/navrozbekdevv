@@ -13,6 +13,15 @@ import {
   type ReactNode,
 } from "react";
 import { adminLogin } from "@/lib/content.functions";
+import { localAdminCredentials } from "@/data/adminCredentials";
+
+/** Offline check: used when there is no backend (local/VS Code run). */
+function localLogin(username: string, password: string) {
+  return (
+    username.trim() === localAdminCredentials.username &&
+    password === localAdminCredentials.password
+  );
+}
 
 const SESSION_KEY = "portfolio:admin-session";
 export const TOKEN_KEY = "portfolio:admin-token";
@@ -32,10 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      setIsAuthed(
-        window.localStorage.getItem(SESSION_KEY) === "true" &&
-          Boolean(window.localStorage.getItem(TOKEN_KEY)),
-      );
+      setIsAuthed(window.localStorage.getItem(SESSION_KEY) === "true");
     } catch {
       /* ignore */
     }
@@ -45,14 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (username: string, password: string) => {
     try {
       const res = await adminLogin({ data: { username, password } });
-      if (!res.ok) return false;
-      window.localStorage.setItem(SESSION_KEY, "true");
-      window.localStorage.setItem(TOKEN_KEY, res.token);
-      setIsAuthed(true);
-      return true;
+      if (res.ok) {
+        window.localStorage.setItem(SESSION_KEY, "true");
+        window.localStorage.setItem(TOKEN_KEY, res.token);
+        setIsAuthed(true);
+        return true;
+      }
+      // Server said no — still allow the offline credentials locally.
+      if (!localLogin(username, password)) return false;
     } catch {
-      return false;
+      // No backend reachable (local run) — fall back to offline credentials.
+      if (!localLogin(username, password)) return false;
     }
+    window.localStorage.setItem(SESSION_KEY, "true");
+    window.localStorage.removeItem(TOKEN_KEY);
+    setIsAuthed(true);
+    return true;
   }, []);
 
   const logout = useCallback(() => {

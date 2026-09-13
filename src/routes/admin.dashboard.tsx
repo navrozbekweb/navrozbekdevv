@@ -1,80 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { LogOut, Plus, RotateCcw, Trash2, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LogOut, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useContent } from "@/context/ContentContext";
-import { uploadSiteImage } from "@/lib/content.functions";
-import { TOKEN_KEY } from "@/context/AuthContext";
 import type { Project, Skill } from "@/data/portfolio";
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
-/** Text field for an image URL, plus a button to upload a file from disk instead. */
-function ImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
-    const token = window.localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      toast.error("Sessiya tugagan — qaytadan kiring");
-      return;
-    }
-    setUploading(true);
-    try {
-      const base64 = await fileToBase64(file);
-      const res = await uploadSiteImage({
-        data: { token, filename: file.name, contentType: file.type, base64 },
-      });
-      onChange(res.url);
-      toast.success("Rasm yuklandi");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Rasm yuklashda xatolik");
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <input className={field} value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://..." />
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-60"
-        >
-          <Upload size={14} /> {uploading ? "Yuklanmoqda…" : "Fayldan tanlash"}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          className="hidden"
-          onChange={(e) => handleFile(e.target.files?.[0])}
-        />
-      </div>
-      {value && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={value} alt="" className="h-20 w-20 rounded-md border border-border object-cover" />
-      )}
-    </div>
-  );
-}
 
 export const Route = createFileRoute("/admin/dashboard")({
   ssr: false,
@@ -247,8 +177,8 @@ function ProjectsPanel() {
               <input className={field} value={p.title} onChange={(e) => patch(i, { title: e.target.value })} />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium">Rasm</label>
-              <ImageField value={p.image} onChange={(url) => patch(i, { image: url })} />
+              <label className="mb-1.5 block text-xs font-medium">Rasm URL</label>
+              <input className={field} value={p.image} onChange={(e) => patch(i, { image: e.target.value })} />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-xs font-medium">Tavsif</label>
@@ -331,8 +261,8 @@ function AboutPanel() {
           <input className={field} value={a.role} onChange={(e) => patch({ role: e.target.value })} />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs font-medium">Rasm</label>
-          <ImageField value={a.avatar} onChange={(url) => patch({ avatar: url })} />
+          <label className="mb-1.5 block text-xs font-medium">Rasm URL</label>
+          <input className={field} value={a.avatar} onChange={(e) => patch({ avatar: e.target.value })} />
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-medium">Kirish matni</label>

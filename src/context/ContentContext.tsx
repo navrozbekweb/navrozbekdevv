@@ -16,7 +16,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { defaultContent, type Content } from "@/data/portfolio";
+import { defaultContent, resolveImage, type Content } from "@/data/portfolio";
 import { saveSiteContent } from "@/lib/content.functions";
 import { TOKEN_KEY } from "@/context/AuthContext";
 
@@ -30,13 +30,22 @@ type Ctx = {
 
 const ContentContext = createContext<Ctx | null>(null);
 
+/** Make sure image paths work both on Lovable and in a local run. */
+function normalize(content: Content): Content {
+  return {
+    ...content,
+    about: { ...content.about, avatar: resolveImage(content.about?.avatar) },
+    projects: (content.projects ?? []).map((p) => ({ ...p, image: resolveImage(p.image) })),
+  };
+}
+
 function readCached(): Content | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<Content>;
-    return { ...defaultContent, ...parsed };
+    return normalize({ ...defaultContent, ...parsed });
   } catch {
     return null;
   }
@@ -68,7 +77,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
           .eq("key", "main")
           .maybeSingle();
         if (!cancelled && !error && data?.data) {
-          const merged = { ...defaultContent, ...(data.data as Partial<Content>) };
+          const merged = normalize({ ...defaultContent, ...(data.data as Partial<Content>) });
           setContent(merged);
           cacheContent(merged);
         }

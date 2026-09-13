@@ -8,3 +8,5 @@
 - [x] Rasm biroz kulib turgan qilib tahrirlandi va saytda yangilandi
 - [x] Aloqa formasi: xabarlar bazaga saqlanadi va Telegram'ga yuboriladi
 - [x] Tungi rejim (dark mode) tugmasi qo'shildi
+- [x] Ma'lumotlar ikki rejimda: bazadan yoki local fayl/brauzer xotirasidan
+- [x] Admin login: admin / admin404 (backend bo'lmasa ham ishlaydi)

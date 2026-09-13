@@ -86,3 +86,32 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Lokal ishga tushirish (VS Code)
+
+```sh
+npm install
+npm run dev
+```
+
+Admin panel: `/admin/login` — login: `admin`, parol: `admin404`
+
+- Barcha kontent (about, ko'nikmalar, loyihalar, aloqa) `src/data/portfolio.ts` faylida statik saqlanadi;
+  admin paneldagi o'zgarishlar brauzer xotirasiga (localStorage) yoziladi.
+- Rasmlar `src/assets/` ichidagi fayllardan olinadi, shuning uchun lokal ishlatganda ham ko'rinadi.
+- Ma'lumotlar bazasi faqat Lovable Cloud kalitlari (`.env`) mavjud bo'lganda ishlaydi.
+  Lokal ishlatganda aloqa formasi baribir ishlaydi, lekin xabar bazaga saqlanmaydi.
+
+### Telegram bildirishnomasi (lokal, Netlify, Vercel)
+
+Aloqa formasidan kelgan xabarlar Telegram'ga yuborilishi uchun ikki qiymat kerak.
+Lokalda `.env` fayliga, Netlify/Vercel'da esa loyiha sozlamalaridagi
+"Environment variables" bo'limiga qo'shiladi:
+
+```
+TELEGRAM_BOT_TOKEN=<@BotFather bergan token>
+TELEGRAM_CHAT_ID=7247424123
+```
+
+Token bo'lmasa forma xatolik bermaydi — xabar shunchaki yuborilmaydi.
+
