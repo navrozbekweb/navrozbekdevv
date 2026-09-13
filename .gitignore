@@ -36,7 +36,6 @@ dist-ssr
 .env.*
 
 # Lokal redaktor kesh va tarix papkalari
-.tarix
-.sevimli
+.history
 .history/
 .vscode/
